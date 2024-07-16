@@ -1,69 +1,56 @@
 use axum::{
     extract::{
         ws::{Message, WebSocket},
-        Path, WebSocketUpgrade,
+        Path, State, WebSocketUpgrade,
     },
-    response::{IntoResponse, Response}, Extension, Json,
+    response::Response,
+    Json,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
+
+use crate::util::state::TAppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NowPlaying {
+pub struct Song {
     title: String,
     artist: String,
     album: String,
     artwork: String,
+    duration: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NowPlayingPacket {
+pub struct ChangeSongPacket {
     username: String,
-    now_playing: NowPlaying,
+    now_playing: Song,
+}
+
+pub struct SeekPacket {
+    username: String,
+    seek: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NowPlayingUser {
-    now_playing: Option<NowPlaying>,
+pub struct NowPlaying {
+    pub song: Song,
+    // pub position: u64,
 }
 
-#[derive(Debug, Clone)]
-pub struct NowPlayingState {
-    users: Arc<Mutex<HashMap<String, NowPlayingUser>>>,
+pub async fn nowplaying_socket(ws: WebSocketUpgrade, State(state): TAppState) -> Response {
+    ws.on_upgrade(move |socket| socket_handler(socket, State(state)))
 }
 
-impl NowPlayingState {
-    pub fn new() -> Self {
-        Self {
-            users: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub async fn set_now_playing(&self, username: String, now_playing: NowPlaying) {
-        let mut users = self.users.lock().await;
-        let user = users
-            .entry(username)
-            .or_insert(NowPlayingUser { now_playing: None });
-        user.now_playing = Some(now_playing);
-    }
-
-	pub async fn get_now_playing(&self, username: String) -> Option<NowPlaying> {
-		let users = self.users.lock().await;
-		users.get(&username).map(|u| u.now_playing.clone()).flatten()
-	}
+pub async fn nowplaying_get(
+    Path(username): Path<String>,
+    State(state): TAppState,
+) -> Json<NowPlaying> {
+    dbg!(&state);
+    let state = state.lock().await;
+	let np = state.get_now_playing(username).await.unwrap();
+    Json(np)
 }
 
-pub async fn nowplaying_socket(ws: WebSocketUpgrade, state: Extension<Arc<NowPlayingState>>) -> Response {
-    ws.on_upgrade(|socket| socket_handler(socket, state))
-}
-
-pub async fn nowplaying_get(Path(username): Path<String>, state: Extension<Arc<NowPlayingState>>) -> Json<Option<NowPlaying>> {
-	let np = state.get_now_playing(username).await;
-	Json(np)
-}
-
-async fn socket_handler(mut socket: WebSocket, state: Extension<Arc<NowPlayingState>>) {
+async fn socket_handler(mut socket: WebSocket, State(state): TAppState) {
     while let Some(msg) = socket.recv().await {
         let msg = if let Ok(msg) = msg {
             msg
@@ -74,16 +61,20 @@ async fn socket_handler(mut socket: WebSocket, state: Extension<Arc<NowPlayingSt
         // dbg!(&msg);
 
         if let Message::Text(text) = msg {
-			dbg!(&text);
+            dbg!(&text);
             if let Ok(np) = deserialize(&text) {
                 dbg!(&np);
+                let mut state = state.lock().await;
+				dbg!("reached lock");
 				state.set_now_playing(np.username, np.now_playing).await;
+				dbg!("reached set");
+				dbg!(&state);
             }
         }
     }
 }
 
-fn deserialize(msg: &String) -> Result<NowPlayingPacket, serde_json::Error> {
+fn deserialize(msg: &String) -> Result<ChangeSongPacket, serde_json::Error> {
     serde_json::from_str(msg)
 }
 

@@ -1,15 +1,15 @@
-use axum::{
-    extract::{Path, WebSocketUpgrade}, http::HeaderMap, response::Html, routing::get, Extension, Router
-};
-use std::{collections::HashMap, error::Error, sync::Arc};
-use tokio::sync::RwLock;
+use axum::{response::Html, routing::get, Router};
+use std::{error::Error, sync::Arc};
+use tokio::sync::Mutex;
+use util::state::AppState;
 
 mod media;
 use media::nowplaying;
+mod util;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let state = Arc::new(nowplaying::NowPlayingState::new());
+    let app_state = Arc::new(Mutex::new(AppState::new()));
 
     let app = Router::new()
         .route("/", get(root))
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             "/media/nowplaying/:username",
             get(nowplaying::nowplaying_get),
         )
-		.layer(Extension(state));
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3030").await?;
     println!("listening on http://{}", listener.local_addr().unwrap());
