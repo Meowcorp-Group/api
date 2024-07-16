@@ -6,7 +6,6 @@ use tokio::sync::RwLock;
 
 mod media;
 use media::nowplaying;
-mod util;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
