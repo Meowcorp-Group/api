@@ -19,18 +19,18 @@ impl AppState {
 
 	// NowPlaying
 
-	pub async fn get_now_playing(&self, username: String) -> Option<NowPlaying> {
+	pub fn get_now_playing(&self, username: String) -> Option<NowPlaying> {
 		self.now_playing.get(&username).cloned()
 	}
 
-	pub async fn set_now_playing(&mut self, username: String, song: Song) {
+	pub fn set_now_playing(&mut self, username: String, song: Song, position: f64) {
 		// let tmp: u64 = 0;
-		self.now_playing.insert(username, NowPlaying {song});
+		self.now_playing.insert(username, NowPlaying {song, last_position: position});
 	}
 
-	pub async fn remove_now_playing(&mut self, username: String) {
+	pub fn clear_now_playing(&mut self, username: String) {
 		self.now_playing.remove(&username);
 	}
 }
 
-pub type TAppState = State<Arc<Mutex<AppState>>>;
+pub type TAppState = Arc<Mutex<AppState>>;
