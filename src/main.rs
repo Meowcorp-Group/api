@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/media/nowplaying/ws", get(nowplaying::nowplaying_socket))
+        .route("/media/nowplaying/:username/ws", get(nowplaying::nowplaying_handler))
         .route(
             "/media/nowplaying/:username",
             get(nowplaying::nowplaying_get),
