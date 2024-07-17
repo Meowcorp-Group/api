@@ -10,7 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 
-use crate::util::state::{AppState, TAppState};
+use crate::util::state::TAppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Song {

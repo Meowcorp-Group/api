@@ -1,6 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
 
-use axum::extract::State;
 use tokio::sync::Mutex;
 
 use crate::media::nowplaying::{NowPlaying, Song};
